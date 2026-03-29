@@ -9,7 +9,7 @@ import 'home_screen.dart';
 import 'package:camera/camera.dart';
 
 class AuthScreen extends StatefulWidget {
-  const AuthScreen({Key? key}) : super(key: key);
+  const AuthScreen({super.key});
   @override
   State<AuthScreen> createState() => _AuthScreenState();
 }

@@ -14,58 +14,86 @@ class _CameraFullScreenState extends State<CameraFullScreen> {
   late CameraController _controller;
   late Future<void> _initializeControllerFuture;
 
+  late CameraDescription _currentCamera;
+
+  double _currentZoom = 1.0;
+  double _baseZoom = 1.0;
+
+  double _minZoom = 1.0;
+  double _maxZoom = 1.0;
+
+  DateTime _lastZoomUpdate = DateTime.now();
+
+  final double zoomSensitivity = 0.5; 
+
   @override
   void initState() {
     super.initState();
+    _currentCamera = widget.camera;
+    _initializeCamera();
+  }
+
+  Future<void> _initializeCamera() async {
     _controller = CameraController(
-      widget.camera,
+      _currentCamera,
       ResolutionPreset.max,
       enableAudio: false,
     );
+
     _initializeControllerFuture = _controller.initialize();
-    debugPrint('[CameraFullScreen] initState: controller initialized');
+
+    await _initializeControllerFuture;
+
+    _minZoom = await _controller.getMinZoomLevel();
+    _maxZoom = await _controller.getMaxZoomLevel();
+    _currentZoom = _minZoom;
+
+    setState(() {});
   }
 
   @override
   void dispose() {
-    debugPrint('[CameraFullScreen] dispose: disposing controller');
     _controller.dispose();
     super.dispose();
+  }
+
+  Future<void> _switchCamera() async {
+    final cameras = await availableCameras();
+
+    final newCamera = cameras.firstWhere(
+      (camera) => camera.lensDirection != _currentCamera.lensDirection,
+    );
+
+    await _controller.dispose();
+
+    _currentCamera = newCamera;
+
+    await _initializeCamera();
   }
 
   Future<void> _takePictureAndReturn() async {
     try {
       await _initializeControllerFuture;
 
-      debugPrint('[CameraFullScreen] _takePictureAndReturn: getting position');
       final position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
         ),
       );
-      debugPrint('[CameraFullScreen] _takePictureAndReturn: taking picture');
+
       final image = await _controller.takePicture();
 
-      if (!mounted) {
-        debugPrint(
-          '[CameraFullScreen] not mounted after capture — skipping pop',
-        );
-        return;
-      }
+      if (!mounted) return;
 
-      final nav = Navigator.of(context);
-      if (nav.canPop()) {
-        debugPrint('[CameraFullScreen] popping with result');
-        nav.pop({'image': image, 'position': position});
-      } else {
-        debugPrint('[CameraFullScreen] cannot pop (no routes) — skipping pop');
-      }
-    } catch (e, st) {
-      debugPrint('Erro ao tirar foto: $e\n$st');
+      Navigator.of(context).pop({
+        'image': image,
+        'position': position,
+      });
+    } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Erro ao tirar foto: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error taking picture: $e')),
+        );
       }
     }
   }
@@ -75,7 +103,6 @@ class _CameraFullScreenState extends State<CameraFullScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
-        maintainBottomViewPadding: false,
         child: Stack(
           children: [
             FutureBuilder<void>(
@@ -91,14 +118,40 @@ class _CameraFullScreenState extends State<CameraFullScreen> {
                 final deviceRatio = size.width / size.height;
 
                 final previewSize = _controller.value.previewSize!;
-                final previewRatio = previewSize.height / previewSize.width;
+                final previewRatio =
+                    previewSize.height / previewSize.width;
 
                 final scale = deviceRatio / previewRatio;
 
                 return Transform.scale(
                   scale: scale < 1 ? 1 / scale : scale,
                   alignment: Alignment.center,
-                  child: Center(child: CameraPreview(_controller)),
+                  child: Center(
+                    child: GestureDetector(
+                      onScaleStart: (details) {
+                        _baseZoom = _currentZoom;
+                      },
+                      onScaleUpdate: (details) {
+                        final now = DateTime.now();
+
+                        if (now.difference(_lastZoomUpdate).inMilliseconds < 30) {
+                          return;
+                        }
+
+                        double scaleFactor =
+                            1 + ((details.scale - 1) * zoomSensitivity);
+
+                        double zoom = _baseZoom * scaleFactor;
+                        zoom = zoom.clamp(_minZoom, _maxZoom);
+
+                        _controller.setZoomLevel(zoom);
+
+                        _currentZoom = zoom;
+                        _lastZoomUpdate = now;
+                      },
+                      child: CameraPreview(_controller),
+                    ),
+                  ),
                 );
               },
             ),
@@ -109,16 +162,21 @@ class _CameraFullScreenState extends State<CameraFullScreen> {
               child: IconButton(
                 icon: const Icon(Icons.close, color: Colors.white, size: 30),
                 onPressed: () {
-                  final nav = Navigator.of(context);
-                  if (nav.canPop()) {
-                    debugPrint('[CameraFullScreen] close pressed -> popping');
-                    nav.pop();
-                  } else {
-                    debugPrint(
-                      '[CameraFullScreen] close pressed but cannot pop',
-                    );
-                  }
+                  Navigator.of(context).pop();
                 },
+              ),
+            ),
+
+            Positioned(
+              top: 16 + MediaQuery.of(context).padding.top,
+              right: 12,
+              child: IconButton(
+                icon: const Icon(
+                  Icons.cameraswitch,
+                  color: Colors.white,
+                  size: 30,
+                ),
+                onPressed: _switchCamera,
               ),
             ),
 

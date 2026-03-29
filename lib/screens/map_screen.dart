@@ -10,8 +10,7 @@ class MapScreen extends StatefulWidget {
   final List<PhotoModel> photos;
   final int initialIndex;
 
-  const MapScreen({Key? key, required this.photos, this.initialIndex = 0})
-    : super(key: key);
+  const MapScreen({super.key, required this.photos, this.initialIndex = 0});
 
   @override
   State<MapScreen> createState() => _MapScreenState();

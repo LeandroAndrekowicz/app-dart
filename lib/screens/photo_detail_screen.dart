@@ -10,10 +10,10 @@ class PhotoDetailScreen extends StatelessWidget {
   final VoidCallback onDelete;
 
   const PhotoDetailScreen({
-    Key? key,
+    super.key,
     required this.photo,
     required this.onDelete,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
