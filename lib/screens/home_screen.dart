@@ -1,6 +1,9 @@
 // lib/screens/home_screen.dart
 import 'dart:io';
+import 'package:another_telephony/telephony.dart';
+import 'package:app_dart/main.dart';
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:camera/camera.dart';
 import 'package:uuid/uuid.dart';
@@ -32,20 +35,12 @@ class _HomeScreenState extends State<HomeScreen>
     return usersBox.get(id);
   }
 
-  void getLocationPermission() async {
-    LocationPermission permission;
-    permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        exit(1);
-      }
-    }
-  }
-
   @override
   void initState() {
     super.initState();
+    requestPermissions();
+    //requestGeoPermission();
+    startSmsListener();
     _tabController = TabController(length: 2, vsync: this);
   }
 
@@ -53,6 +48,19 @@ class _HomeScreenState extends State<HomeScreen>
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  void startSmsListener() {
+    final Telephony telephony = Telephony.instance;
+    telephony.listenIncomingSms(
+      onNewMessage: (SmsMessage message) {
+        setState(() {
+          Fluttertoast.showToast(msg: 'Received SMS: ${message.body}');
+          Fluttertoast.showToast(msg: 'Sender: ${message.address}');
+        });
+      },
+      listenInBackground: false,
+    );
   }
 
   Future<void> _logout() async {
@@ -236,8 +244,6 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   Widget build(BuildContext context) {
-    getLocationPermission();
-    
     final user = currentUser;
 
     return Scaffold(
