@@ -24,7 +24,7 @@ class _CameraFullScreenState extends State<CameraFullScreen> {
 
   DateTime _lastZoomUpdate = DateTime.now();
 
-  final double zoomSensitivity = 0.5; 
+  final double zoomSensitivity = 0.5;
 
   @override
   void initState() {
@@ -36,14 +36,13 @@ class _CameraFullScreenState extends State<CameraFullScreen> {
   Future<void> _initializeCamera() async {
     _controller = CameraController(
       _currentCamera,
-      ResolutionPreset.max,
+      ResolutionPreset.veryHigh,
       enableAudio: false,
     );
 
     _initializeControllerFuture = _controller.initialize();
 
     await _initializeControllerFuture;
-
     _minZoom = await _controller.getMinZoomLevel();
     _maxZoom = await _controller.getMaxZoomLevel();
     _currentZoom = _minZoom;
@@ -75,25 +74,21 @@ class _CameraFullScreenState extends State<CameraFullScreen> {
     try {
       await _initializeControllerFuture;
 
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-        ),
-      );
-
       final image = await _controller.takePicture();
 
       if (!mounted) return;
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium,
+        ),
+      );
 
-      Navigator.of(context).pop({
-        'image': image,
-        'position': position,
-      });
+      Navigator.of(context).pop({'image': image, 'position': position});
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error taking picture: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error taking picture: $e')));
       }
     }
   }
@@ -118,8 +113,7 @@ class _CameraFullScreenState extends State<CameraFullScreen> {
                 final deviceRatio = size.width / size.height;
 
                 final previewSize = _controller.value.previewSize!;
-                final previewRatio =
-                    previewSize.height / previewSize.width;
+                final previewRatio = previewSize.height / previewSize.width;
 
                 final scale = deviceRatio / previewRatio;
 
@@ -134,7 +128,8 @@ class _CameraFullScreenState extends State<CameraFullScreen> {
                       onScaleUpdate: (details) {
                         final now = DateTime.now();
 
-                        if (now.difference(_lastZoomUpdate).inMilliseconds < 30) {
+                        if (now.difference(_lastZoomUpdate).inMilliseconds <
+                            30) {
                           return;
                         }
 
