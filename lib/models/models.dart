@@ -33,7 +33,6 @@ class PhotoModel {
   });
 }
 
-// --- Adapters manuais para Hive ---
 class UserModelAdapter extends TypeAdapter<UserModel> {
   @override
   final int typeId = 0;
